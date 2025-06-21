@@ -1,72 +1,119 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>IP Reputation Checker</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f3f3;
-      padding: 40px;
-      text-align: center;
-    }
-    input, button {
-      padding: 10px;
-      font-size: 16px;
-    }
-    #result {
-      margin-top: 30px;
-      padding: 20px;
-      background: #fff;
-      border-radius: 10px;
-      display: inline-block;
-      text-align: left;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .label {
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Reputation Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            width: 400px;
+            text-align: center;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 20px;
+            text-align: left;
+            display: none;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
 </head>
 <body>
-  <h1>IP Reputation Checker</h1>
-  <input type="text" id="ipInput" placeholder="Enter IP address" />
-  <button onclick="checkIP()">Check IP</button>
+    <div class="container">
+        <h1>IP Reputation Checker</h1>
+        <input type="text" id="ipInput" placeholder="Enter IP address (e.g., 105.120.136.200)">
+        <button onclick="checkIP()">Check IP</button>
+        <div id="result"></div>
+    </div>
 
-  <div id="result"></div>
+    <script>
+        const apiKey = 'CBS3QzHbZbmxdKrSfRl5BlL0JSrKHn3j'; // Your API key
+        const baseUrl = 'https://ipqualityscore.com/api/json/ip';
 
-  <script>
-    async function checkIP() {
-      const apiKey = "YOUR_API_KEY"; // Replace with your real IPQS API key
-      const ip = document.getElementById("ipInput").value;
-      const url = `https://ipqualityscore.com/api/json/ip/${apiKey}/${ip}?strictness=1`;
+        async function checkIP() {
+            const ipInput = document.getElementById('ipInput').value.trim();
+            const resultDiv = document.getElementById('result');
 
-      document.getElementById("result").innerHTML = "Checking...";
+            // Basic IP validation
+            const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+            if (!ipRegex.test(ipInput)) {
+                resultDiv.innerHTML = '<p class="error">Please enter a valid IP address.</p>';
+                resultDiv.style.display = 'block';
+                return;
+            }
 
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
+            // Construct API URL
+            const url = `${baseUrl}/${apiKey}/${ipInput}?strictness=3&allow_public_access_points=true`;
 
-        if (data.success === false) {
-          document.getElementById("result").innerHTML = `<span style="color:red">Error: ${data.message || "Invalid request"}</span>`;
-          return;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                // Display results
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <p class="success">Success!</p>
+                        <p><strong>Fraud Score:</strong> ${data.fraud_score}</p>
+                        <p><strong>Country:</strong> ${data.country_code}</p>
+                        <p><strong>Region:</strong> ${data.region}</p>
+                        <p><strong>City:</strong> ${data.city}</p>
+                        <p><strong>ISP:</strong> ${data.ISP}</p>
+                        <p><strong>Proxy:</strong> ${data.proxy ? 'Yes' : 'No'}</p>
+                        <p><strong>VPN:</strong> ${data.vpn ? 'Yes' : 'No'}</p>
+                        <p><strong>TOR:</strong> ${data.tor ? 'Yes' : 'No'}</p>
+                        <p><strong>Recent Abuse:</strong> ${data.recent_abuse ? 'Yes' : 'No'}</p>
+                        <p><strong>Bot Status:</strong> ${data.bot_status ? 'Yes' : 'No'}</p>
+                        <p><strong>Latitude:</strong> ${data.latitude}</p>
+                        <p><strong>Longitude:</strong> ${data.longitude}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+                }
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                resultDiv.innerHTML = `<p class="error">Failed to fetch data. Please try again later.</p>`;
+                resultDiv.style.display = 'block';
+            }
         }
-
-        document.getElementById("result").innerHTML = `
-          <div><span class="label">IP:</span> ${data.ip_address}</div>
-          <div><span class="label">Fraud Score:</span> ${data.fraud_score}</div>
-          <div><span class="label">Proxy:</span> ${data.proxy}</div>
-          <div><span class="label">VPN:</span> ${data.vpn}</div>
-          <div><span class="label">Tor:</span> ${data.tor}</div>
-          <div><span class="label">Bot:</span> ${data.is_bot}</div>
-          <div><span class="label">Country:</span> ${data.country_code}</div>
-          <div><span class="label">ISP:</span> ${data.ISP}</div>
-          <div><span class="label">City:</span> ${data.city}</div>
-        `;
-      } catch (err) {
-        document.getElementById("result").innerHTML = `<span style="color:red">Error: ${err.message}</span>`;
-      }
-    }
-  </script>
+    </script>
 </body>
 </html>
