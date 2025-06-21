@@ -3,117 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP Reputation Checker</title>
+    <title>IP Reputation Score Checker</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
+            background-color: #f8f9fa;
         }
         .container {
-            background-color: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            width: 400px;
-            text-align: center;
+            max-width: 600px;
+            margin-top: 50px;
         }
-        h1 {
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        input[type="text"] {
-            width: 80%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        #result {
+        .result-box {
             margin-top: 20px;
-            text-align: left;
-            display: none;
-        }
-        .error {
-            color: red;
-        }
-        .success {
-            color: green;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>IP Reputation Checker</h1>
-        <input type="text" id="ipInput" placeholder="Enter IP address (e.g., 105.120.136.200)">
-        <button onclick="checkIP()">Check IP</button>
-        <div id="result"></div>
-    </div>
+        <h1 class="text-center mb-4">IP Reputation Score Checker</h1>
+        <form method="POST" action="">
+            <div class="mb-3">
+                <label for="ip_address" class="form-label">Enter IP Address</label>
+                <input type="text" class="form-control" id="ip_address" name="ip_address" placeholder="e.g., 192.168.1.1" value="<?php echo isset($_POST['ip_address']) ? htmlspecialchars($_POST['ip_address']) : ''; ?>">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Check IP Reputation</button>
+        </form>
 
-    <script>
-        const apiKey = 'CBS3QzHbZbmxdKrSfRl5BlL0JSrKHn3j'; // Your API key
-        const baseUrl = 'https://ipqualityscore.com/api/json/ip';
+        <?php
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['ip_address'])) {
+            // Your API Key
+            $key = 'YOUR_API_KEY_HERE'; // Replace with your actual IPQualityScore API key
 
-        async function checkIP() {
-            const ipInput = document.getElementById('ipInput').value.trim();
-            const resultDiv = document.getElementById('result');
+            // Retrieve the user's IP address from form input
+            $ip = filter_var($_POST['ip_address'], FILTER_VALIDATE_IP) ? $_POST['ip_address'] : null;
 
-            // Basic IP validation
-            const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-            if (!ipRegex.test(ipInput)) {
-                resultDiv.innerHTML = '<p class="error">Please enter a valid IP address.</p>';
-                resultDiv.style.display = 'block';
-                return;
+            if (!$ip) {
+                echo '<div class="alert alert-danger mt-3">Invalid IP address entered.</div>';
+                exit;
             }
 
-            // Construct API URL
-            const url = `${baseUrl}/${apiKey}/${ipInput}?strictness=3&allow_public_access_points=true`;
+            // Retrieve additional (optional) data points
+            $user_agent = $_SERVER['HTTP_USER_AGENT'];
+            $user_language = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
 
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
+            // Set the strictness for this query (0 - least strict, 3 - most strict)
+            $strictness = 1;
 
-                // Display results
-                if (data.success) {
-                    resultDiv.innerHTML = `
-                        <p class="success">Success!</p>
-                        <p><strong>Fraud Score:</strong> ${data.fraud_score}</p>
-                        <p><strong>Country:</strong> ${data.country_code}</p>
-                        <p><strong>Region:</strong> ${data.region}</p>
-                        <p><strong>City:</strong> ${data.city}</p>
-                        <p><strong>ISP:</strong> ${data.ISP}</p>
-                        <p><strong>Proxy:</strong> ${data.proxy ? 'Yes' : 'No'}</p>
-                        <p><strong>VPN:</strong> ${data.vpn ? 'Yes' : 'No'}</p>
-                        <p><strong>TOR:</strong> ${data.tor ? 'Yes' : 'No'}</p>
-                        <p><strong>Recent Abuse:</strong> ${data.recent_abuse ? 'Yes' : 'No'}</p>
-                        <p><strong>Bot Status:</strong> ${data.bot_status ? 'Yes' : 'No'}</p>
-                        <p><strong>Latitude:</strong> ${data.latitude}</p>
-                        <p><strong>Longitude:</strong> ${data.longitude}</p>
-                    `;
+            // Allow public access points like coffee shops, schools, etc.
+            $allow_public_access_points = 'true';
+
+            // Reduce scoring penalties for mixed quality IP addresses
+            $lighter_penalties = 'false';
+
+            // Create parameters array
+            $parameters = array(
+                'user_agent' => $user_agent,
+                'user_language' => $user_language,
+                'strictness' => $strictness,
+                'allow_public_access_points' => $allow_public_access_points,
+                'lighter_penalties' => $lighter_penalties
+            );
+
+            // Format Parameters
+            $formatted_parameters = http_build_query($parameters);
+
+            // Create API URL
+            $url = sprintf(
+                'https://www.ipqualityscore.com/api/json/ip/%s/%s?%s',
+                $key,
+                $ip,
+                $formatted_parameters
+            );
+
+            // Fetch The Result
+            $timeout = 5;
+            $curl = curl_init();
+            curl_setopt($curl, CURLOPT_URL, $url);
+            curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
+            curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
+
+            $json = curl_exec($curl);
+            curl_close($curl);
+
+            // Decode the result into an array
+            $result = json_decode($json, true);
+
+            // Check if the query was successful
+            if (isset($result['success']) && $result['success'] === true) {
+                echo '<div class="result-box">';
+                echo '<h3>IP Reputation Results</h3>';
+                echo '<p><strong>IP Address:</strong> ' . htmlspecialchars($ip) . '</p>';
+                echo '<p><strong>Fraud Score:</strong> ' . (isset($result['fraud_score']) ? $result['fraud_score'] : 'N/A') . '</p>';
+                echo '<p><strong>Proxy:</strong> ' . ($result['proxy'] ? 'Yes' : 'No') . '</p>';
+                echo '<p><strong>TOR:</strong> ' . ($result['tor'] ? 'Yes' : 'No') . '</p>';
+                echo '<p><strong>Crawler:</strong> ' . ($result['is_crawler'] ? 'Yes' : 'No') . '</p>';
+                echo '<p><strong>Country:</strong> ' . (isset($result['country_code']) ? $result['country_code'] : 'N/A') . '</p>';
+                echo '<p><strong>ISP:</strong> ' . (isset($result['ISP']) ? $result['ISP'] : 'N/A') . '</p>';
+
+                // Display recommendation based on fraud score
+                if ($result['fraud_score'] >= 80 && $result['is_crawler'] === false) {
+                    echo '<div class="alert alert-warning mt-3">High risk IP detected. Consider blocking or further verification.</div>';
+                } elseif ($result['proxy'] === true && $result['is_crawler'] === false) {
+                    echo '<div class="alert alert-warning mt-3">Proxy detected. Consider requiring additional authentication.</div>';
                 } else {
-                    resultDiv.innerHTML = `<p class="error">Error: ${data.message}</p>`;
+                    echo '<div class="alert alert-success mt-3">IP appears to be low risk.</div>';
                 }
-                resultDiv.style.display = 'block';
-            } catch (error) {
-                resultDiv.innerHTML = `<p class="error">Failed to fetch data. Please try again later.</p>`;
-                resultDiv.style.display = 'block';
+                echo '</div>';
+            } else {
+                echo '<div class="alert alert-danger mt-3">Error: ' . (isset($result['message']) ? htmlspecialchars($result['message']) : 'Unable to fetch IP reputation data.') . '</div>';
             }
         }
-    </script>
+        ?>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
