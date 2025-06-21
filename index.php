@@ -1,1 +1,144 @@
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Reputation Score Checker</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 50px;
+        }
+        .result-box {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">IP Reputation Score Checker</h1>
+        <form method="POST" action="">
+            <div class="mb-3">
+                <label for="ip_address" class="form-label">Enter IP Address</label>
+                <input type="text" class="form-control" id="ip_address" name="ip_address" placeholder="e.g., 192.168.1.1" value="<?php echo isset($_POST['ip_address']) ? htmlspecialchars($_POST['ip_address']) : ''; ?>">
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Check IP Reputation</button>
+        </form>
 
+        <?php
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            // Check for empty IP input
+            if (empty($_POST['ip_address'])) {
+                echo '<div class="alert alert-danger mt-3">Please enter an IP address.</div>';
+            } else {
+                // Your API Key
+                $key = 'YOUR_API_KEY_HERE'; // Replace with your actual IPQualityScore API key
+
+                // Validate IP address
+                $ip = filter_var($_POST['ip_address'], FILTER_VALIDATE_IP);
+                if (!$ip) {
+                    echo '<div class="alert alert-danger mt-3">Invalid IP address entered.</div>';
+                } else {
+                    // Retrieve additional (optional) data points
+                    $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+                    $user_language = isset($_SERVER['HTTP_ACCEPT_LANGUAGE']) ? $_SERVER['HTTP_ACCEPT_LANGUAGE'] : '';
+
+                    // Set the strictness for this query (0 - least strict, 3 - most strict)
+                    $strictness = 1;
+
+                    // Allow public access points like coffee shops, schools, etc.
+                    $allow_public_access_points = 'true';
+
+                    // Reduce scoring penalties for mixed quality IP addresses
+                    $lighter_penalties = 'false';
+
+                    // Create parameters array
+                    $parameters = array(
+                        'user_agent' => $user_agent,
+                        'user_language' => $user_language,
+                        'strictness' => $strictness,
+                        'allow_public_access_points' => $allow_public_access_points,
+                        'lighter_penalties' => $lighter_penalties
+                    );
+
+                    // Format Parameters
+                    $formatted_parameters = http_build_query($parameters);
+
+                    // Create API URL
+                    $url = sprintf(
+                        'https://www.ipqualityscore.com/api/json/ip/%s/%s?%s',
+                        $key,
+                        $ip,
+                        $formatted_parameters
+                    );
+
+                    // Fetch The Result
+                    $timeout = 5;
+                    $curl = curl_init();
+                    curl_setopt($curl, CURLOPT_URL, $url);
+                    curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
+                    curl_setopt($curl, CURLOPT_FOLLOWLOCATION, 1);
+                    curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
+
+                    $json = curl_exec($curl);
+                    $curl_error = curl_error($curl);
+                    curl_close($curl);
+
+                    // Check for cURL errors
+                    if ($json === false) {
+                        echo '<div class="alert alert-danger mt-3">Network error: ' . htmlspecialchars($curl_error) . '</div>';
+                    } else {
+                        // Decode the result into an array
+                        $result = json_decode($json, true);
+
+                        // Check if JSON decoding was successful
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            echo '<div class="alert alert-danger mt-3">Error: Invalid response from API.</div>';
+                        } elseif (isset($result['success']) && $result['success'] === true) {
+                            echo '<div class="result-box">';
+                            echo '<h3>IP Reputation Results</h3>';
+                            echo '<p><strong>IP Address:</strong> ' . htmlspecialchars($ip) . '</p>';
+                            echo '<p><strong>Fraud Score:</strong> ' . (isset($result['fraud_score']) ? $result['fraud_score'] : 'N/A') . '</p>';
+                            echo '<p><strong>Proxy:</strong> ' . (isset($result['proxy']) && $result['proxy'] ? 'Yes' : 'No') . '</p>';
+                            echo '<p><strong>TOR:</strong> ' . (isset($result['tor']) && $result['tor'] ? 'Yes' : 'No') . '</p>';
+                            echo '<p><strong>Crawler:</strong> ' . (isset($result['is_crawler']) && $result['is_crawler'] ? 'Yes' : 'No') . '</p>';
+                            echo '<p><strong>Country:</strong> ' . (isset($result['country_code']) ? $result['country_code'] : 'N/A') . '</p>';
+                            echo '<p><strong>ISP:</strong> ' . (isset($result['ISP']) ? htmlspecialchars($result['ISP']) : 'N/A') . '</p>';
+
+                            // Display recommendation based on fraud score
+                            if (isset($result['fraud_score']) && $result['fraud_score'] >= 80 && (!isset($result['is_crawler']) || $result['is_crawler'] === false)) {
+                                echo '<div class="alert alert-warning mt-3">High risk IP detected. Consider blocking or further verification.</div>';
+                            } elseif (isset($result['proxy']) && $result['proxy'] === true && (!isset($result['is_crawler']) || $result['is_crawler'] === false)) {
+                                echo '<div class="alert alert-warning mt-3">Proxy detected. Consider requiring additional authentication.</div>';
+                            } else {
+                                echo '<div class="alert alert-success mt-3">IP appears to be low risk.</div>';
+                            }
+                            echo '</div>';
+                        } else {
+                            echo '<div class="alert alert-danger mt-3">Error: ' . (isset($result['message']) ? htmlspecialchars($result['message']) : 'Unable to fetch IP reputation data.') . '</div>';
+                        }
+                    }
+                }
+            }
+        }
+        ?>
+    </div>
+
+    <!-- Bootstrap JS and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
