@@ -37,7 +37,7 @@
         <?php
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['ip_address'])) {
             // Your API Key
-            $key = 'YOUR_API_KEY_HERE'; // Replace with your actual IPQualityScore API key
+            $key = 'CBS3QzHbZbmxdKrSfRl5BlL0JSrKHn3j'; // Replace with your actual IPQualityScore API key
 
             // Retrieve the user's IP address from form input
             $ip = filter_var($_POST['ip_address'], FILTER_VALIDATE_IP) ? $_POST['ip_address'] : null;
